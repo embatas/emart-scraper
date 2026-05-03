@@ -30,9 +30,12 @@ module.exports = async (req, res) => {
       || $('div.title h1').first().text().trim();
 
     // Цена
-    const priceRaw = $('div.price-inner').first().text().trim();
-    const price = parseFloat(priceRaw.replace(/[^\d.,]/g, '').replace(',', '.'));
-    const finalPrice = Math.round(price * 1.20 * 100) / 100;
+// Вземи само основната цена в евро (първото число)
+const priceRaw = $('div.price-inner').first().text().trim();
+const priceMatch = priceRaw.match(/(\d+[.,]\d+)/);
+const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
+const finalPrice = Math.round(price * 1.10 * 100) / 100;
+
 
     // Описание
     const description = $('div.description-wrap').html() || '';
