@@ -4,7 +4,7 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -26,33 +26,39 @@ module.exports = async (req, res) => {
     const $ = cheerio.load(html);
 
     // Заглавие
-    const title = $('h1.product-title, h1[itemprop="name"], h1').first().text().trim();
+    const title = $('div.title h1 span').first().text().trim()
+      || $('div.title h1').first().text().trim();
 
     // Цена
-    let priceText = $('[itemprop="price"]').attr('content') 
-      || $('.price .amount, .product-price, .price-box .price').first().text().trim();
-    let price = parseFloat(priceText.replace(/[^\d.,]/g, '').replace(',', '.'));
-    let finalPrice = Math.round(price * 1.20 * 100) / 100;
+    const priceRaw = $('div.price-inner').first().text().trim();
+    const price = parseFloat(priceRaw.replace(/[^\d.,]/g, '').replace(',', '.'));
+    const finalPrice = Math.round(price * 1.20 * 100) / 100;
 
     // Описание
-    const description = $('[itemprop="description"], .product-description, #product-description').html() 
-      || $('[itemprop="description"], .product-description').text().trim();
+    const description = $('div.description-wrap').html() || '';
 
-    // Снимки
+    // Снимки - главна снимка
     const images = [];
-    $('img[itemprop="image"], .product-images img, .gallery img, .swiper-slide img').each((i, el) => {
-      let src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy');
-      if (src && !src.includes('placeholder') && !src.includes('loading')) {
+    const mainImg = $('#gsnman').attr('src');
+    if (mainImg) images.push(mainImg);
+
+    // Допълнителни снимки от галерията
+    $('div#cv_nan img, .image-gallery img').each((i, el) => {
+      let src = $(el).attr('src') || $(el).attr('data-src');
+      if (src) {
+        // Вземи голямата версия
+        src = src.replace('/small/', '/big/').replace('/medium/', '/big/');
         if (src.startsWith('//')) src = 'https:' + src;
-        if (src.startsWith('/')) src = 'https://www.emart.bg' + src;
         if (!images.includes(src)) images.push(src);
       }
     });
 
-    if (!title) return res.status(422).json({ error: 'Не можах да намеря продукта' });
+    if (!title) {
+      return res.status(422).json({ error: 'Не можах да намеря продукта. Проверете URL адреса.' });
+    }
 
     res.json({ title, description, images, originalPrice: price, finalPrice });
   } catch (err) {
-    res.status(500).json({ error: 'Грешка при зареждане: ' + err.message });
+    res.status(500).json({ error: 'Грешка: ' + err.message });
   }
 };
